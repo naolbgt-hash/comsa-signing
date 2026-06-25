@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>COMS-A | Document Signing Portal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  /* COMS-A web brand palette */
+  --navy:#0d2840;        /* deep navy */
+  --teal:#1a8f7a;        /* primary teal/green */
+  --teal-dark:#136b5c;
+  --teal-light:#e8f5f1;
+  --gold:#d4a843;        /* accent */
+  --ink:#1c2b36;
+  --muted:#6b7c89;
+  --line:#e2e8ec;
+  --bg:#f7f9fa;
+  --white:#ffffff;
+  --red:#c0392b;
+}
+body{font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+.screen{display:none;min-height:100vh;flex-direction:column}
+.screen.active{display:flex}
+
+/* HEADER */
+header{background:var(--white);border-bottom:1px solid var(--line);padding:14px 24px;display:flex;align-items:center;gap:14px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.logo-icon{width:42px;height:42px;flex-shrink:0}
+.logo-full{height:44px;width:auto;max-width:200px;flex-shrink:0}
+.logo-text h1{font-size:17px;font-weight:700;color:var(--navy);letter-spacing:.01em}
+.logo-text p{font-size:11px;color:var(--muted);margin-top:1px}
+.badge{margin-left:auto;background:var(--teal-light);color:var(--teal-dark);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:600;letter-spacing:.04em}
+
+/* DISPLAY */
+#display .hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:26px;text-align:center}
+.hero h2{font-size:26px;font-weight:700;color:var(--navy)}
+.hero .doc-title{font-size:14px;color:var(--teal-dark);font-weight:600;margin-top:4px}
+.hero p{font-size:14px;color:var(--muted);max-width:440px;line-height:1.7}
+.qr-card{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:26px;display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:0 6px 24px rgba(13,40,64,.08)}
+#qrcode{width:230px;height:230px}
+.qr-label{color:var(--navy);font-size:14px;font-weight:700}
+.qr-sub{color:var(--muted);font-size:12px}
+.btn-primary{background:var(--teal);color:#fff;border:none;border-radius:10px;padding:13px 30px;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s}
+.btn-primary:hover{background:var(--teal-dark)}
+.btn-ghost{background:transparent;color:var(--teal-dark);border:1.5px solid var(--teal);border-radius:10px;padding:11px 26px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-ghost:hover{background:var(--teal-light)}
+.stats-row{display:flex;gap:14px}
+.stat{background:var(--white);border:1px solid var(--line);border-radius:12px;padding:14px 26px;text-align:center;min-width:110px}
+.stat-num{font-size:30px;font-weight:700;color:var(--teal)}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* FORM */
+.form-container{flex:1;padding:24px 16px 40px;max-width:600px;margin:0 auto;width:100%}
+.doc-banner{background:var(--navy);color:#fff;border-radius:12px;padding:16px 18px;margin-bottom:22px;display:flex;align-items:center;gap:14px}
+.doc-banner .di{width:34px;height:34px;background:var(--teal);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.doc-banner .dt{font-size:14px;font-weight:600}
+.doc-banner .ds{font-size:11px;opacity:.7;margin-top:2px}
+.progress-bar{height:5px;background:var(--line);border-radius:3px;margin-bottom:24px;overflow:hidden}
+.progress-fill{height:100%;background:var(--teal);border-radius:3px;transition:width .3s;width:0%}
+.form-section{margin-bottom:26px}
+.form-section h3{font-size:13px;font-weight:700;color:var(--teal-dark);letter-spacing:.04em;text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--teal-light)}
+.field{margin-bottom:15px}
+.field label{display:block;font-size:12px;color:var(--muted);font-weight:600;margin-bottom:6px}
+.field input,.field select{width:100%;background:var(--white);border:1.5px solid var(--line);border-radius:9px;padding:12px 14px;color:var(--ink);font-size:14px;outline:none;transition:border .2s;font-family:inherit}
+.field input:focus,.field select:focus{border-color:var(--teal)}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* SIGNATURE */
+.sig-tabs{display:flex;margin-bottom:14px;border:1.5px solid var(--line);border-radius:10px;overflow:hidden}
+.sig-tab{flex:1;padding:11px;font-size:13px;font-weight:600;text-align:center;cursor:pointer;background:var(--white);color:var(--muted);border:none;transition:all .2s}
+.sig-tab.active{background:var(--teal);color:#fff}
+.sig-panel{display:none}
+.sig-panel.active{display:block}
+#sig-canvas{width:100%;height:180px;background:#fff;border:1.5px solid var(--line);border-radius:10px;cursor:crosshair;touch-action:none;display:block}
+.sig-actions{display:flex;gap:8px;margin-top:8px;align-items:center}
+.btn-sm{background:var(--white);color:var(--muted);border:1.5px solid var(--line);border-radius:7px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit}
+.btn-sm:hover{color:var(--teal-dark);border-color:var(--teal)}
+.hint{font-size:11px;color:var(--muted)}
+#type-sig{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:14px;color:var(--navy);font-family:Georgia,serif;font-style:italic;font-size:26px;outline:none;text-align:center}
+.typed-preview{font-family:Georgia,serif;font-style:italic;font-size:28px;color:var(--navy);background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:16px;text-align:center;min-height:68px;display:flex;align-items:center;justify-content:center;margin-top:12px}
+.upload-zone{border:2px dashed var(--line);border-radius:10px;padding:30px;text-align:center;cursor:pointer;transition:border .2s}
+.upload-zone:hover{border-color:var(--teal)}
+.upload-zone p{color:var(--muted);font-size:13px}
+#upload-input{display:none}
+#upload-preview{max-width:100%;max-height:120px;margin-top:12px;display:none;border-radius:6px}
+
+/* CONSENT */
+.consent-box{background:var(--teal-light);border:1px solid #cfe9e2;border-radius:10px;padding:16px;font-size:12.5px;color:var(--ink);line-height:1.7;margin-bottom:18px}
+.consent-box strong{color:var(--navy)}
+.checkbox-row{display:flex;gap:10px;align-items:flex-start;margin-top:12px}
+.checkbox-row input{margin-top:3px;accent-color:var(--teal);width:16px;height:16px;flex-shrink:0}
+.checkbox-row label{font-size:12.5px;color:var(--ink);line-height:1.6;cursor:pointer}
+
+/* SUCCESS */
+#success .wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px}
+.success-card{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:34px 26px;max-width:400px;width:100%;text-align:center;box-shadow:0 6px 24px rgba(13,40,64,.08)}
+.success-icon{width:70px;height:70px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;color:#fff;margin:0 auto 22px}
+.success-card h2{font-size:22px;color:var(--navy);margin-bottom:8px}
+.success-card p{font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:3px}
+.sig-result{background:#fff;border:1px solid var(--line);border-radius:8px;margin:16px 0;padding:12px;min-height:60px;display:flex;align-items:center;justify-content:center}
+.sig-result img{max-height:56px;max-width:100%}
+
+/* ADMIN */
+#admin .body{padding:24px;max-width:1000px;margin:0 auto;width:100%}
+.admin-header{display:flex;align-items:center;gap:12px;margin-bottom:22px;flex-wrap:wrap}
+.admin-header h2{font-size:20px;color:var(--navy)}
+.entries-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.entry-card{background:var(--white);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.03)}
+.entry-card .ec-name{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:4px}
+.entry-card .ec-meta{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:10px}
+.entry-card .ec-sig{background:#fff;border:1px solid var(--line);border-radius:6px;height:50px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.entry-card .ec-sig img{max-height:46px;max-width:100%}
+.entry-card .ec-time{font-size:10px;color:#aab;margin-top:8px}
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted);grid-column:1/-1}
+
+.bottom-nav{background:var(--white);border-top:1px solid var(--line);padding:12px 16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.nav-btn{background:var(--white);border:1.5px solid var(--line);border-radius:9px;padding:9px 18px;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s}
+.nav-btn:hover{border-color:var(--teal);color:var(--teal-dark)}
+.alert{background:#fdecea;border:1px solid #f5c6c0;border-radius:9px;padding:12px 16px;font-size:13px;color:var(--red);margin-bottom:16px;display:none}
+
+::-webkit-scrollbar{width:7px}::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+</style>
+</head>
+<body>
+
+<!-- LOGO SVG (reused) -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <g id="comsalogo">
+      <circle cx="21" cy="21" r="20" fill="#0d2840"/>
+      <path d="M21 7 C15 11 12 16 13 22 C14 28 18 31 21 34 C24 31 28 28 29 22 C30 16 27 11 21 7Z" fill="none" stroke="#1a8f7a" stroke-width="1.6"/>
+      <ellipse cx="21" cy="23" rx="6" ry="4" fill="none" stroke="#d4a843" stroke-width="1.2"/>
+      <line x1="21" y1="7" x2="21" y2="34" stroke="#1a8f7a" stroke-width="1" opacity=".6"/>
+    </g>
+  </defs>
+</svg>
+
+<!-- ══ DISPLAY ══ -->
+<div class="screen active" id="display">
+  <header>
+    <img class="logo-full" src="https://coms-africa.org/wp-content/uploads/2025/05/Logo-COMSA.svg" alt="COMS-A" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+    <div class="logo-text" style="display:none"><h1>COMS-A</h1><p>Consortium of Medical Schools – Africa</p></div>
+    <div class="badge">SIGNING PORTAL</div>
+  </header>
+  <div class="hero">
+    <div>
+      <h2>Document Signing</h2>
+      <div class="doc-title" id="display-doc-title">COMS-A Constitution</div>
+    </div>
+    <p>Delegates: scan the QR code below with your phone or tablet to review and sign the document. Bilingual signing supported (EN / FR).</p>
+    <div class="qr-card">
+      <img src="https://coms-africa.org/wp-content/uploads/2025/05/Logo-COMSA.svg" alt="COMS-A" style="height:34px;width:auto;margin-bottom:4px" onerror="this.style.display='none'"/>
+      <div id="qrcode"></div>
+      <div class="qr-label">Scan to Sign</div>
+      <div class="qr-sub">Point your phone camera at this code</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+      <button class="btn-primary" onclick="goTo('signing')">Open Signing Form →</button>
+      <button class="btn-ghost" onclick="goTo('admin')">View Signatures Dashboard</button>
+    </div>
+    <div class="stats-row">
+      <div class="stat"><div class="stat-num" id="stat-total">0</div><div class="stat-lbl">Signatures</div></div>
+      <div class="stat"><div class="stat-num" id="stat-countries">0</div><div class="stat-lbl">Countries</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SIGNING ══ -->
+<div class="screen" id="signing">
+  <header>
+    <img class="logo-full" src="https://coms-africa.org/wp-content/uploads/2025/05/Logo-COMSA.svg" alt="COMS-A" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+    <div class="logo-text" style="display:none"><h1>COMS-A</h1><p>Delegate Signature</p></div>
+  </header>
+  <div class="form-container">
+    <div class="doc-banner">
+      <div class="di">📄</div>
+      <div>
+        <div class="dt" id="form-doc-title">COMS-A Constitution</div>
+        <div class="ds" id="form-doc-sub">Kigali, Rwanda · March 25, 2025</div>
+      </div>
+      <a id="view-doc-link" href="#" target="_blank" style="margin-left:auto;color:#9fd8cc;font-size:12px;font-weight:600;text-decoration:none">View document ↗</a>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+    <div class="alert" id="form-alert"></div>
+
+    <div class="form-section">
+      <h3>Delegate Information / Informations du délégué</h3>
+      <div class="field">
+        <label>Full Name / Nom complet *</label>
+        <input type="text" id="f-fullname" placeholder="e.g. Dr. Amara Diallo" oninput="updateProgress()"/>
+      </div>
+      <div class="field">
+        <label>Title / Fonction *</label>
+        <select id="f-title" onchange="updateProgress()">
+          <option value="">— Select title —</option>
+          <option>Dean / Doyen</option><option>Vice-Dean / Vice-Doyen</option>
+          <option>Professor / Professeur</option><option>Associate Professor</option>
+          <option>Dr.</option><option>Rector / Recteur</option><option>Vice-Chancellor</option>
+          <option>Director / Directeur</option><option>President / Président</option>
+          <option>Secretary General / Secrétaire Général</option><option>Other / Autre</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Country / Pays *</label>
+        <select id="f-country" onchange="updateProgress()">
+          <option value="">— Select country —</option>
+          <option>Algeria</option><option>Angola</option><option>Benin</option><option>Botswana</option>
+          <option>Burkina Faso</option><option>Burundi</option><option>Cabo Verde</option><option>Cameroon</option>
+          <option>Central African Republic</option><option>Chad</option><option>Comoros</option>
+          <option>DR Congo</option><option>Republic of Congo</option><option>Côte d'Ivoire</option>
+          <option>Djibouti</option><option>Egypt</option><option>Equatorial Guinea</option><option>Eritrea</option>
+          <option>Eswatini</option><option>Ethiopia</option><option>Gabon</option><option>Gambia</option>
+          <option>Ghana</option><option>Guinea</option><option>Guinea-Bissau</option><option>Kenya</option>
+          <option>Lesotho</option><option>Liberia</option><option>Libya</option><option>Madagascar</option>
+          <option>Malawi</option><option>Mali</option><option>Mauritania</option><option>Mauritius</option>
+          <option>Morocco</option><option>Mozambique</option><option>Namibia</option><option>Niger</option>
+          <option>Nigeria</option><option>Rwanda</option><option>São Tomé and Príncipe</option><option>Senegal</option>
+          <option>Seychelles</option><option>Sierra Leone</option><option>Somalia</option><option>South Africa</option>
+          <option>South Sudan</option><option>Sudan</option><option>Tanzania</option><option>Togo</option>
+          <option>Tunisia</option><option>Uganda</option><option>Zambia</option><option>Zimbabwe</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Institution / Établissement *</label>
+        <input type="text" id="f-institution" placeholder="e.g. University of Rwanda" oninput="updateProgress()"/>
+      </div>
+      <div class="field">
+        <label>Email (optional)</label>
+        <input type="email" id="f-email" placeholder="your@institution.edu"/>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Your Signature / Votre Signature *</h3>
+      <div class="sig-tabs">
+        <button class="sig-tab active" onclick="switchTab('draw')">✍ Draw</button>
+        <button class="sig-tab" onclick="switchTab('type')">T Type</button>
+        <button class="sig-tab" onclick="switchTab('upload')">↑ Upload</button>
+      </div>
+      <div class="sig-panel active" id="panel-draw">
+        <canvas id="sig-canvas" width="560" height="180"></canvas>
+        <div class="sig-actions">
+          <button class="btn-sm" onclick="clearCanvas()">Clear</button>
+          <span class="hint">Sign above using your finger or mouse</span>
+        </div>
+      </div>
+      <div class="sig-panel" id="panel-type">
+        <input id="type-sig" type="text" placeholder="Type your full name" oninput="updateTypedPreview(this.value)"/>
+        <div class="typed-preview" id="typed-preview">Your Signature</div>
+      </div>
+      <div class="sig-panel" id="panel-upload">
+        <div class="upload-zone" onclick="document.getElementById('upload-input').click()">
+          <p>Click to upload signature image<br><span style="font-size:11px;opacity:.7">PNG, JPG · transparent background preferred</span></p>
+          <img id="upload-preview" src="" alt=""/>
+        </div>
+        <input type="file" id="upload-input" accept="image/*" onchange="previewUpload(this)"/>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="consent-box">
+        <strong>Declaration / Déclaration</strong><br>
+        By signing, I confirm that I am an authorized representative of the institution named above and I hereby adopt the document referenced above.<br><br>
+        En signant, je confirme être un représentant autorisé de l'institution susmentionnée et j'adopte par la présente le document référencé ci-dessus.
+        <div class="checkbox-row">
+          <input type="checkbox" id="consent" onchange="updateProgress()"/>
+          <label for="consent">I confirm / Je confirme — I am authorized to sign on behalf of my institution.</label>
+        </div>
+      </div>
+      <button class="btn-primary" style="width:100%;padding:15px;font-size:16px" onclick="submitSignature()">Submit Signature / Soumettre</button>
+    </div>
+  </div>
+  <div class="bottom-nav"><button class="nav-btn" onclick="goTo('display')">← Back</button></div>
+</div>
+
+<!-- ══ SUCCESS ══ -->
+<div class="screen" id="success">
+  <header>
+    <img class="logo-full" src="https://coms-africa.org/wp-content/uploads/2025/05/Logo-COMSA.svg" alt="COMS-A" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+    <div class="logo-text" style="display:none"><h1>COMS-A</h1><p>Document Signing</p></div>
+  </header>
+  <div class="wrap">
+    <div class="success-card">
+      <div class="success-icon">✓</div>
+      <h2>Signature Recorded!</h2>
+      <p style="margin-top:12px" id="success-name"></p>
+      <p id="success-inst"></p>
+      <div class="sig-result"><img id="success-sig" src="" alt=""/></div>
+      <p style="font-size:11px;margin-top:8px">Recorded at <span id="success-time"></span></p>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:20px">
+        <button class="btn-primary" onclick="goTo('display')">Done / Terminé</button>
+        <button class="btn-ghost" onclick="resetForm();goTo('signing')">Sign Again</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADMIN ══ -->
+<div class="screen" id="admin">
+  <header>
+    <img class="logo-full" src="https://coms-africa.org/wp-content/uploads/2025/05/Logo-COMSA.svg" alt="COMS-A" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+    <div class="logo-text" style="display:none"><h1>Signatures Dashboard</h1><p id="admin-doc-title">COMS-A Constitution</p></div>
+  </header>
+  <div class="body">
+    <div class="admin-header">
+      <h2 id="admin-count">0 Signatures</h2>
+      <button class="btn-primary" onclick="exportPDF()" style="margin-left:auto">⬇ Download Signed PDF</button>
+      <button class="btn-ghost" onclick="goTo('display')">← Back</button>
+    </div>
+    <div class="entries-grid" id="entries-grid">
+      <div class="empty-state">No signatures yet. Delegates can sign using the QR code.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   CONFIG  ←  EDIT THESE VALUES (or have me change them later)
+   ════════════════════════════════════════════════════════════ */
+const DOC_CONFIG = {
+  title:    "COMS-A Constitution",
+  subtitle: "Kigali, Rwanda · March 25, 2025",
+  // Link delegates tap to read the document before signing.
+  pdfUrl:   "https://coms-africa.org/wp-content/uploads/2025/06/English-Constitution.pdf",
+  // Text that prints on the exported document cover.
+  declaration: "We, the authorized representatives of the institutions listed below, hereby adopt the Constitution of the Consortium of Medical Schools – Africa (COMS-A), done on March 25, 2025, in Kigali, Rwanda."
+};
+
+/* ── SUPABASE CONFIG  ←  PASTE YOUR TWO KEYS HERE ──────────────
+   Get them from Supabase → Project Settings → API
+   Until both are filled in, the portal runs in LOCAL mode
+   (signatures stay in this browser only, good for testing).
+   ──────────────────────────────────────────────────────────── */
+const SUPABASE_CONFIG = {
+  url:     "",   // e.g. "https://abcdxyz.supabase.co"
+  anonKey: ""    // the long "anon public" key
+};
+
+let supa = null;
+const CLOUD = !!(SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey);
+if (CLOUD) {
+  supa = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+}
+
+/* Apply config to UI */
+document.getElementById('display-doc-title').textContent = DOC_CONFIG.title;
+document.getElementById('form-doc-title').textContent = DOC_CONFIG.title;
+document.getElementById('form-doc-sub').textContent = DOC_CONFIG.subtitle;
+document.getElementById('admin-doc-title').textContent = DOC_CONFIG.title;
+document.getElementById('view-doc-link').href = DOC_CONFIG.pdfUrl;
+
+/* ════════════════════════════════════════════════════════════ */
+
+/* CONFIG: official COMS-A logo (hosted on their site) */
+const LOGO_URL = "https://coms-africa.org/wp-content/uploads/2025/05/Logo-COMSA.svg";
+
+const signatures = [];
+let currentTab = 'draw', uploadDataURL = null;
+
+/* ── DATA LAYER (Supabase cloud  OR  local fallback) ── */
+async function saveSignature(entry){
+  if(CLOUD){
+    const {error}=await supa.from('signatures').insert([{
+      full_name:entry.fullName, country:entry.country, institution:entry.institution,
+      title:entry.title, email:entry.email, signature:entry.sig
+    }]);
+    if(error){console.error(error);throw error;}
+  } else {
+    signatures.push(entry); // local testing only
+  }
+}
+async function loadSignatures(){
+  if(CLOUD){
+    const {data,error}=await supa.from('signatures').select('*').order('country',{ascending:true});
+    if(error){console.error(error);return [];}
+    return data.map(r=>({fullName:r.full_name,country:r.country,institution:r.institution,
+      title:r.title,email:r.email,sig:r.signature,time:new Date(r.created_at).toLocaleString()}));
+  }
+  return signatures.slice();
+}
+
+/* QR */
+const qrUrl = window.location.href.split('#')[0] + '#sign';
+new QRCode(document.getElementById('qrcode'), {
+  text: qrUrl, width: 220, height: 220,
+  colorDark: '#0d2840', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M
+});
+if (window.location.hash === '#sign') goTo('signing');
+
+function goTo(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+  if(id==='admin') renderAdmin();
+  if(id==='display') updateStats();
+}
+/* CANVAS */
+const canvas=document.getElementById('sig-canvas'), ctx=canvas.getContext('2d');
+let drawing=false,lx=0,ly=0;
+function pos(e){const r=canvas.getBoundingClientRect();const sx=canvas.width/r.width,sy=canvas.height/r.height;
+  if(e.touches)return[(e.touches[0].clientX-r.left)*sx,(e.touches[0].clientY-r.top)*sy];
+  return[(e.clientX-r.left)*sx,(e.clientY-r.top)*sy];}
+canvas.addEventListener('mousedown',e=>{drawing=true;[lx,ly]=pos(e);});
+canvas.addEventListener('mousemove',e=>{if(drawing)dr(e);});
+canvas.addEventListener('mouseup',()=>drawing=false);
+canvas.addEventListener('mouseleave',()=>drawing=false);
+canvas.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;[lx,ly]=pos(e);},{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();if(drawing)dr(e);},{passive:false});
+canvas.addEventListener('touchend',()=>drawing=false);
+function dr(e){const[x,y]=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(x,y);
+  ctx.strokeStyle='#0d2840';ctx.lineWidth=2.5;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();lx=x;ly=y;}
+function clearCanvas(){ctx.clearRect(0,0,canvas.width,canvas.height);}
+
+function switchTab(t){currentTab=t;
+  document.querySelectorAll('.sig-tab').forEach((b,i)=>b.classList.toggle('active',['draw','type','upload'][i]===t));
+  document.querySelectorAll('.sig-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+t).classList.add('active');}
+function updateTypedPreview(v){document.getElementById('typed-preview').textContent=v||'Your Signature';}
+function previewUpload(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();
+  r.onload=e=>{uploadDataURL=e.target.result;const i=document.getElementById('upload-preview');i.src=e.target.result;i.style.display='block';};
+  r.readAsDataURL(f);}
+
+function updateProgress(){
+  const f=['f-fullname','f-title','f-country','f-institution'];
+  const filled=f.filter(id=>document.getElementById(id).value.trim()).length;
+  const c=document.getElementById('consent').checked?1:0;
+  document.getElementById('progress').style.width=Math.round((filled+c)/5*100)+'%';}
+
+function getSig(){
+  if(currentTab==='draw'){
+    const b=document.createElement('canvas');b.width=canvas.width;b.height=canvas.height;
+    if(canvas.toDataURL()===b.toDataURL())return null;
+    const c2=document.createElement('canvas');c2.width=canvas.width;c2.height=canvas.height;
+    const x=c2.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c2.width,c2.height);x.drawImage(canvas,0,0);
+    return c2.toDataURL();
+  }
+  if(currentTab==='type'){const v=document.getElementById('type-sig').value.trim();if(!v)return null;
+    const c=document.createElement('canvas');c.width=400;c.height=100;const x=c.getContext('2d');
+    x.fillStyle='#fff';x.fillRect(0,0,400,100);x.font='italic 40px Georgia,serif';x.fillStyle='#0d2840';
+    x.textAlign='center';x.textBaseline='middle';x.fillText(v,200,50);return c.toDataURL();}
+  if(currentTab==='upload')return uploadDataURL||null;
+  return null;}
+
+async function submitSignature(){
+  const a=document.getElementById('form-alert');a.style.display='none';
+  const name=document.getElementById('f-fullname').value.trim();
+  const title=document.getElementById('f-title').value;
+  const country=document.getElementById('f-country').value;
+  const inst=document.getElementById('f-institution').value.trim();
+  const consent=document.getElementById('consent').checked;
+  const sig=getSig();
+  if(!name||!title||!country||!inst){return showAlert('Please complete all required fields. / Veuillez remplir tous les champs obligatoires.');}
+  if(!sig){return showAlert('Please provide your signature. / Veuillez fournir votre signature.');}
+  if(!consent){return showAlert('Please confirm your consent. / Veuillez confirmer votre consentement.');}
+  const e={id:Date.now(),fullName:name,title,country,institution:inst,
+    email:document.getElementById('f-email').value,sig,time:new Date().toLocaleString()};
+  const btn=document.querySelector('#signing .btn-primary[onclick="submitSignature()"]');
+  const orig=btn.textContent; btn.textContent='Submitting…'; btn.disabled=true;
+  try{
+    await saveSignature(e);
+  }catch(err){
+    btn.textContent=orig; btn.disabled=false;
+    return showAlert('Could not save your signature. Please check your connection and try again.');
+  }
+  btn.textContent=orig; btn.disabled=false;
+  document.getElementById('success-name').textContent=title+' '+name;
+  document.getElementById('success-inst').textContent=inst+' · '+country;
+  document.getElementById('success-sig').src=sig;
+  document.getElementById('success-time').textContent=e.time;
+  goTo('success');resetForm();
+}
+
+function showAlert(m){const a=document.getElementById('form-alert');a.textContent=m;a.style.display='block';a.scrollIntoView({behavior:'smooth'});}
+function resetForm(){['f-fullname','f-email','f-institution'].forEach(id=>document.getElementById(id).value='');
+  ['f-title','f-country'].forEach(id=>document.getElementById(id).value='');clearCanvas();uploadDataURL=null;
+  document.getElementById('upload-preview').style.display='none';document.getElementById('type-sig').value='';
+  document.getElementById('typed-preview').textContent='Your Signature';document.getElementById('consent').checked=false;
+  document.getElementById('form-alert').style.display='none';document.getElementById('progress').style.width='0%';switchTab('draw');}
+
+async function updateStats(){
+  const data=await loadSignatures();
+  document.getElementById('stat-total').textContent=data.length;
+  document.getElementById('stat-countries').textContent=new Set(data.map(s=>s.country)).size;
+}
+
+async function renderAdmin(){
+  const g=document.getElementById('entries-grid');
+  g.innerHTML='<div class="empty-state">Loading…</div>';
+  const data=await loadSignatures();
+  window._sigCache=data; // used by exportPDF
+  document.getElementById('admin-count').textContent=data.length+' Signature'+(data.length!==1?'s':'');
+  if(!data.length){g.innerHTML='<div class="empty-state">No signatures yet. Delegates can sign using the QR code.</div>';return;}
+  g.innerHTML=data.map(s=>`<div class="entry-card">
+    <div class="ec-name">${s.title} ${s.fullName}</div>
+    <div class="ec-meta">${s.institution}<br>${s.country}${s.email?'<br>'+s.email:''}</div>
+    <div class="ec-sig"><img src="${s.sig}"/></div>
+    <div class="ec-time">${s.time}</div></div>`).join('');}
+
+/* PDF EXPORT — Word-style document, grouped by country, compact */
+async function exportPDF(){
+  const data = window._sigCache && window._sigCache.length ? window._sigCache : await loadSignatures();
+  if(!data.length){alert('No signatures to export yet.');return;}
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210,H=297,M=20;
+
+  /* group by country, alphabetical */
+  const groups={};
+  data.forEach(s=>{(groups[s.country]=groups[s.country]||[]).push(s);});
+  const countries=Object.keys(groups).sort();
+
+  function pageHeaderBand(){
+    doc.setFillColor(13,40,64);doc.rect(0,0,W,7,'F');
+    doc.setFillColor(26,143,122);doc.rect(0,7,W,1,'F');
+  }
+  function footer(pg){
+    doc.setDrawColor(225,232,236);doc.setLineWidth(0.3);doc.line(M,H-14,W-M,H-14);
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(150,150,150);
+    doc.text('COMS-A · '+DOC_CONFIG.title,M,H-9);
+    doc.text(String(pg),W-M,H-9,{align:'right'});
+  }
+
+  /* ── COVER PAGE ── */
+  let pg=1;
+  doc.setFillColor(13,40,64);doc.rect(0,0,W,H,'F');
+  doc.setFillColor(26,143,122);doc.rect(0,150,W,1.5,'F');
+  doc.setFont('times','bold');doc.setFontSize(30);doc.setTextColor(255,255,255);
+  doc.text('Signature Document',M,90);
+  doc.setFont('times','normal');doc.setFontSize(15);doc.setTextColor(212,168,67);
+  doc.text(DOC_CONFIG.title,M,105);
+  doc.setFontSize(11);doc.setTextColor(200,220,215);
+  doc.text(DOC_CONFIG.subtitle,M,114);
+  const cdecl=doc.splitTextToSize(DOC_CONFIG.declaration,W-2*M);
+  doc.setFontSize(10);doc.setTextColor(220,230,228);
+  doc.text(cdecl,M,170);
+  doc.setFontSize(9);doc.setTextColor(150,170,168);
+  doc.text('Total signatories: '+data.length+'    Countries represented: '+countries.length,M,H-30);
+  doc.text('Consortium of Medical Schools – Africa (COMS-A)',M,H-22);
+
+  /* ── BODY PAGES ── */
+  doc.addPage();pg++;pageHeaderBand();footer(pg);
+  let y=22;
+
+  for(const country of countries){
+    /* country heading */
+    if(y>H-50){doc.addPage();pg++;pageHeaderBand();footer(pg);y=22;}
+    doc.setFillColor(13,40,64);doc.rect(M,y,W-2*M,9,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(255,255,255);
+    doc.text(country.toUpperCase(),M+3,y+6.2);
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(180,210,202);
+    doc.text(groups[country].length+(groups[country].length===1?' signatory':' signatories'),W-M-3,y+6.2,{align:'right'});
+    y+=14;
+
+    for(const s of groups[country]){
+      /* each signatory block ~30mm; new page if needed */
+      if(y>H-40){doc.addPage();pg++;pageHeaderBand();footer(pg);y=22;
+        /* repeat country (continued) */
+        doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(120,120,120);
+        doc.text(country+' (continued)',M,y);y+=6;
+      }
+      doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(20,30,40);
+      doc.text(s.fullName,M,y);y+=5;
+      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(90,100,108);
+      doc.text('Title / Fonction:  '+s.title,M,y);y+=4.5;
+      const inst=doc.splitTextToSize('Institution:  '+s.institution,W-2*M-58);
+      doc.text(inst,M,y);
+      /* signature image on the right */
+      try{const img=new Image();img.src=s.sig;await new Promise(r=>{img.onload=r;img.onerror=r;});
+        doc.addImage(s.sig,'PNG',W-M-52,y-9,50,15);}catch(e){}
+      /* signature baseline label */
+      doc.setDrawColor(180,180,180);doc.setLineWidth(0.3);doc.line(W-M-52,y+7,W-M,y+7);
+      doc.setFontSize(7);doc.setTextColor(150,150,150);
+      doc.text('Signature',W-M-52,y+10);
+      y+=Math.max(inst.length*4.5,14);
+      doc.setDrawColor(230,236,240);doc.setLineWidth(0.2);doc.line(M,y,W-M,y);
+      y+=6;
+    }
+    y+=4;
+  }
+
+  doc.save('COMS-A_Signed_Document_'+new Date().toISOString().slice(0,10)+'.pdf');
+}
+</script>
+</body>
+</html>
